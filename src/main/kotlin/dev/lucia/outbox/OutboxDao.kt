@@ -4,9 +4,10 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import dev.lucia.outbox.retention.OutboxPruner
 
 @Dao
-interface OutboxDao {
+interface OutboxDao : OutboxPruner {
 
     /** Returns the new row id, or -1 when [dedupKey] already exists. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -44,4 +45,8 @@ interface OutboxDao {
 
     @Query("SELECT COUNT(*) FROM outbox WHERE state = :state")
     suspend fun countByState(state: OutboxState): Int
+
+    /** Stale rows only: a live drainer owns everything currently in flight. */
+    @Query("DELETE FROM outbox WHERE state = 'PENDING' AND created_at < :cutoff")
+    override suspend fun pruneStale(cutoff: Long): Int
 }
